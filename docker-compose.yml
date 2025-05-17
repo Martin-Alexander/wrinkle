@@ -2,24 +2,16 @@ services:
   app:
     build: .
     ports:
-      - "8080:8080"
-    env_file:
-      - .env
+      - "54321:8080"
     depends_on:
       - postgres
-    restart: unless-stopped
 
   postgres:
     image: postgres:17.5-bullseye
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=postgres
+    env_file:
+      - .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
 
 volumes:
   postgres_data:
