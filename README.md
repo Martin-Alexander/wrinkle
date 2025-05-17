@@ -1,6 +1,6 @@
 # Wrinkle
 
-A sercure, minimal PostgreSQL database as a service where all user data is persisted neurologically by me.
+A secure, minimal PostgreSQL database as a service where all user data is persisted neurologically by me.
 
 - **Reliability**: Extremely low. Uptime dependent on my schedule and willingness to respond to queries.
 - **Data Integrity**: Extremely low. Even very minimal amounts of data complexity will be difficult for me to remember.
