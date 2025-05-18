@@ -1,0 +1,12 @@
+.vscode/
+
+docker/
+.dockerignore
+
+.env
+.env.sample
+
+.git/
+.gitignore
+
+README.md

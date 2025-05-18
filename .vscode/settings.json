@@ -1,4 +1,4 @@
 {
-  "go.buildTags": "integration",
-  "go.testTags": "integration"
+  "go.buildTags": "integration e2e",
+  "go.testTags": "integration e2e"
 }
