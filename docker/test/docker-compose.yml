@@ -9,12 +9,12 @@ services:
   app:
     build:
       context: ../..
-      dockerfile: docker/test/Dockerfile.app
+      dockerfile: docker/Dockerfile.app
 
   postgres:
     build:
       context: ../..
-      dockerfile: docker/test/Dockerfile.postgres
+      dockerfile: docker/Dockerfile.postgres
     environment:
       POSTGRES_PASSWORD: postgres
     volumes:

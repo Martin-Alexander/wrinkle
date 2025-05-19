@@ -1,17 +1,20 @@
 services:
   app:
-    build: .
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.app
     ports:
-      - "54321:8080"
-    depends_on:
-      - postgres
+      - "54321:54321"
 
   postgres:
-    image: postgres:17.5-bullseye
-    env_file:
-      - .env
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.postgres
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST_AUTH_METHOD: password
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
 
 volumes:
-  postgres_data:
+  postgres-data:

@@ -7,4 +7,4 @@ RUN go mod download
 
 COPY . ./
 
-CMD ["go", "test", "-v", "./...", "--tags=e2e", "--timeout=30m"]
+CMD ["go", "test", "-v", "./e2e/...", "--tags=e2e", "--timeout=30m"]

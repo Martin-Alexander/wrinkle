@@ -12,7 +12,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func TestConnection(t *testing.T) {
+func TestConnectionToProxyServer(t *testing.T) {
 	id := rand.Int()
 
 	databaseName := fmt.Sprintf("test_db_%d", id)
