@@ -1,50 +1,79 @@
 package tcp_server
 
 import (
-	"log/slog"
 	"net"
 )
 
-type ConnectionHandler interface {
-	HandleConnection(conn net.Conn) error
+type ConnectionEvent struct {
+	Conn net.Conn
+	Err  error
 }
 
 type Server struct {
 	network     string
 	port        string
-	connHandler ConnectionHandler
+	listener    net.Listener
+	readyCh     chan net.Addr
+	connEventCh chan ConnectionEvent
+	done        chan struct{}
 }
 
-func NewServer(network string, port string, connectionHandler ConnectionHandler) *Server {
-	return &Server{
+func New(network string, port string) (*Server, <-chan net.Addr) {
+	readyCh := make(chan net.Addr, 1)
+	connEventCh := make(chan ConnectionEvent, 16)
+	done := make(chan struct{})
+
+	server := &Server{
 		network:     network,
 		port:        port,
-		connHandler: connectionHandler,
+		readyCh:     readyCh,
+		connEventCh: connEventCh,
+		done:        done,
 	}
+
+	return server, readyCh
 }
 
-func (s *Server) Listen(onReady func()) error {
+func (s *Server) Listen() error {
 	address := net.JoinHostPort("", s.port)
 	listener, err := net.Listen(s.network, address)
 	if err != nil {
 		return err
 	}
-	onReady()
 	defer listener.Close()
 
+	s.listener = listener
+	s.readyCh <- listener.Addr()
+
 	for {
-		conn, err := listener.Accept()
+		conn, err := s.listener.Accept()
+
 		if err != nil {
-			slog.Error("Error accepting connection", "error", err)
-			continue
+			select {
+			case <-s.done:
+				return nil
+			default:
+				s.connEventCh <- ConnectionEvent{
+					Conn: conn,
+					Err:  err,
+				}
+
+				continue
+			}
 		}
 
-		slog.Info("Accepted connection", "remoteAddr", conn.RemoteAddr().String())
-
-		go func() {
-			if err := s.connHandler.HandleConnection(conn); err != nil {
-				slog.Error("Error handling connection", "error", err)
-			}
-		}()
+		s.connEventCh <- ConnectionEvent{
+			Conn: conn,
+			Err:  err,
+		}
 	}
+}
+
+func (s *Server) Accept() <-chan ConnectionEvent {
+	return s.connEventCh
+}
+
+func (s *Server) Close() {
+	close(s.done)
+	s.listener.Close()
 }

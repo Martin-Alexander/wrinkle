@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"log"
 	"log/slog"
+	"os"
 	"wrinkle/internal/pg_proxy"
 	"wrinkle/internal/tcp_server"
 )
@@ -23,20 +24,31 @@ func main() {
 		InsecureSkipVerify: true,
 	})
 
-	bridgeBuilder := pg_proxy.NewBridgeBuilder(tlsClientHandshaker, tlsServerHandshaker)
+	pgProxyTlsNegotiator := pg_proxy.NewTlsNegotiator(tlsClientHandshaker, tlsServerHandshaker)
 
-	backendConnecter := pg_proxy.NewBackendConnecter("tcp4", "postgres", "5432")
+	pgProxyBackendConnecter := pg_proxy.NewBackendConnecter("tcp4", "postgres", "5432")
 
-	connectionHandler := pg_proxy.NewConnectionHandler(backendConnecter, bridgeBuilder)
+	pgProxyConnectionHandler := pg_proxy.NewConnectionHandler(pgProxyBackendConnecter, pgProxyTlsNegotiator)
 
-	server := tcp_server.NewServer("tcp4", "54321", connectionHandler)
+	server, readyCh := tcp_server.New("tcp4", "54321")
 
-	onReady := func() {
-		slog.Info("Server ready and listening on port 54321...")
-	}
+	go func() {
+		if err = server.Listen(); err != nil {
+			slog.Error("Error starting server", "error", err)
 
-	if err = server.Listen(onReady); err != nil {
-		slog.Error("Error starting server", "error", err)
-		return
+			os.Exit(1)
+		}
+	}()
+
+	addr := <-readyCh
+	slog.Info("Server is ready", "address", addr)
+
+	for connEvent := range server.Accept() {
+		if connEvent.Err != nil {
+			slog.Error("Error accepting connection", "error", connEvent.Err)
+			continue
+		}
+
+		go pgProxyConnectionHandler.HandleConnection(connEvent.Conn)
 	}
 }

@@ -6,68 +6,54 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
-type ConnectionHandlerMock struct {
-	mock.Mock
-}
-
-func (m *ConnectionHandlerMock) HandleConnection(conn net.Conn) error {
-	args := m.Called(conn)
-	return args.Error(0)
-}
-
 func TestNewServer(t *testing.T) {
-	connectionHandlerMock := new(ConnectionHandlerMock)
-
-	server := NewServer("tcp4", "54321", connectionHandlerMock)
+	server, _ := New("tcp4", "")
 
 	assert.NotNil(t, server)
 }
 
 func TestStart(t *testing.T) {
-	connectionHandlerMock := new(ConnectionHandlerMock)
+	server, readyCh := New("tcp4", "")
 
-	ready := make(chan bool)
-	done := make(chan bool)
-	errCh := make(chan error)
+	go server.Listen()
+	defer server.Close()
 
-	connectionHandlerMock.
-		On("HandleConnection", mock.Anything, mock.Anything).
-		Return(nil).
-		Run(func(args mock.Arguments) {
-			done <- true
-		})
-
-	server := NewServer("tcp4", "54321", connectionHandlerMock)
-
-	go func() {
-		onReady := func() {
-			ready <- true
-		}
-		errCh <- server.Listen(onReady)
-	}()
+	var addr net.Addr
 
 	select {
-	case <-ready:
-	case <-errCh:
-		t.Fatalf("Server returned an error: %v", <-errCh)
+	case addr = <-readyCh:
+		assert.NotNil(t, addr)
+	case <-time.After(time.Second):
+		t.Fatal("Timed out waiting for server to be ready")
+	}
+}
+
+func TestAccept(t *testing.T) {
+	server, readyCh := New("tcp4", "")
+
+	go server.Listen()
+	defer server.Close()
+
+	var addr net.Addr
+
+	select {
+	case addr = <-readyCh:
 	case <-time.After(time.Second):
 		t.Fatal("Timed out waiting for server to be ready")
 	}
 
-	conn, err := net.Dial("tcp4", "127.0.0.1:54321")
+	conn, err := net.Dial("tcp4", addr.String())
 	if err != nil {
 		t.Fatalf("Failed to connect to server: %v", err)
 	}
 	defer conn.Close()
 
 	select {
-	case <-done:
+	case connEvent := <-server.Accept():
+		assert.NotNil(t, connEvent)
 	case <-time.After(time.Second):
-		t.Fatal("Timed out waiting for handler to be called")
+		t.Fatal("Timed out waiting for connection handler to be called")
 	}
-
-	connectionHandlerMock.AssertExpectations(t)
 }

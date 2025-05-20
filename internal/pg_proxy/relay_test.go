@@ -8,18 +8,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewManInTheMiddle(t *testing.T) {
+func TestNewRelay(t *testing.T) {
 	_, frontendServer, backendClient, _, closeConnections := createConnections(t)
 	defer closeConnections()
 
-	bridge := NewBridge(frontendServer, backendClient)
+	relay := NewRelay(frontendServer, backendClient)
 
-	assert.NotNil(t, bridge)
-	assert.Equal(t, frontendServer, bridge.frontendConn)
-	assert.Equal(t, backendClient, bridge.backendConn)
+	assert.NotNil(t, relay)
+	assert.Equal(t, frontendServer, relay.frontendConn)
+	assert.Equal(t, backendClient, relay.backendConn)
 }
 
-func TestStartRelaying(t *testing.T) {
+func TestStart(t *testing.T) {
 	frontendClient, frontendServer := createTcpConnection(t)
 	backendClient, backendServer := createTcpConnection(t)
 	defer frontendClient.Close()
@@ -27,9 +27,9 @@ func TestStartRelaying(t *testing.T) {
 	defer backendClient.Close()
 	defer backendServer.Close()
 
-	bridge := NewBridge(frontendServer, backendClient)
+	relay := NewRelay(frontendServer, backendClient)
 
-	go bridge.StartRelaying()
+	go relay.Start()
 
 	frontendDataSent := []byte("frontend test data")
 	frontendClient.Write(frontendDataSent)

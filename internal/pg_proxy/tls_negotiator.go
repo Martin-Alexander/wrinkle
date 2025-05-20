@@ -17,62 +17,60 @@ type Handshaker interface {
 	Handshake(net.Conn) (net.Conn, error)
 }
 
-type BridgeBuilder struct {
+type TlsNegotiator struct {
 	clientHandshaker Handshaker
 	serverHandshaker Handshaker
 }
 
-func NewBridgeBuilder(
+func NewTlsNegotiator(
 	tlsClientHandshaker Handshaker,
 	tlsServerHandshaker Handshaker,
-) *BridgeBuilder {
-	return &BridgeBuilder{
+) *TlsNegotiator {
+	return &TlsNegotiator{
 		clientHandshaker: tlsClientHandshaker,
 		serverHandshaker: tlsServerHandshaker,
 	}
 }
 
-func (b *BridgeBuilder) Build(
+func (t *TlsNegotiator) Negotiate(
 	frontendConn net.Conn,
 	backendConn net.Conn,
-) (*Bridge, error) {
+) (net.Conn, net.Conn, error) {
 	firstEightBytes, err := readNBytes(frontendConn, 8)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if _, err := backendConn.Write(firstEightBytes); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	responseByte, err := readNBytes(backendConn, 1)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if _, err := frontendConn.Write(responseByte); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if responseByte[0] != 'S' {
-		return nil, &TlsNegotiationError{
+		return nil, nil, &TlsNegotiationError{
 			message: "Backend rejection",
 		}
 	}
 
-	frontendTlsConn, err := b.serverHandshaker.Handshake(frontendConn)
+	frontendTlsConn, err := t.serverHandshaker.Handshake(frontendConn)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	backendTlsConn, err := b.clientHandshaker.Handshake(backendConn)
+	backendTlsConn, err := t.clientHandshaker.Handshake(backendConn)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	bridge := NewBridge(frontendTlsConn, backendTlsConn)
-
-	return bridge, nil
+	return frontendTlsConn, backendTlsConn, nil
 }
 
 func readNBytes(conn net.Conn, n int) ([]byte, error) {

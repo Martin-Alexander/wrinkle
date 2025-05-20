@@ -6,16 +6,16 @@ import (
 
 type ConnectionHandler struct {
 	backendConnecter *BackendConnecter
-	bridgeBuilder    *BridgeBuilder
+	tlsNegotiator    *TlsNegotiator
 }
 
 func NewConnectionHandler(
 	backendConnecter *BackendConnecter,
-	bridgeBuilder *BridgeBuilder,
+	tlsNegotiator *TlsNegotiator,
 ) *ConnectionHandler {
 	return &ConnectionHandler{
 		backendConnecter: backendConnecter,
-		bridgeBuilder:    bridgeBuilder,
+		tlsNegotiator:    tlsNegotiator,
 	}
 }
 
@@ -28,10 +28,12 @@ func (ch *ConnectionHandler) HandleConnection(conn net.Conn) error {
 	}
 	defer backendConn.Close()
 
-	bridge, err := ch.bridgeBuilder.Build(conn, backendConn)
+	frontendTlsConn, backendTlsConn, err := ch.tlsNegotiator.Negotiate(conn, backendConn)
 	if err != nil {
 		return err
 	}
 
-	return bridge.StartRelaying()
+	relay := NewRelay(frontendTlsConn, backendTlsConn)
+
+	return relay.Start()
 }

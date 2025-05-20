@@ -10,43 +10,43 @@ import (
 	"sync"
 )
 
-type Bridge struct {
+type Relay struct {
 	frontendConn net.Conn
 	backendConn  net.Conn
 	ctx          context.Context
 	cancel       context.CancelCauseFunc
 }
 
-func NewBridge(
+func NewRelay(
 	frontendConn net.Conn,
 	backendConn net.Conn,
-) *Bridge {
-	return &Bridge{
+) *Relay {
+	return &Relay{
 		frontendConn: frontendConn,
 		backendConn:  backendConn,
 	}
 }
 
-func (b *Bridge) StartRelaying() error {
-	b.ctx, b.cancel = context.WithCancelCause(context.Background())
+func (r *Relay) Start() error {
+	r.ctx, r.cancel = context.WithCancelCause(context.Background())
 
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	go b.startForwardRelaying(b.frontendConn, b.backendConn, &wg)
-	go b.startForwardRelaying(b.backendConn, b.frontendConn, &wg)
+	go r.startForwarding(r.frontendConn, r.backendConn, &wg)
+	go r.startForwarding(r.backendConn, r.frontendConn, &wg)
 
 	wg.Wait()
 
-	return context.Cause(b.ctx)
+	return context.Cause(r.ctx)
 }
 
-func (b *Bridge) startForwardRelaying(source net.Conn, destination net.Conn, wg *sync.WaitGroup) {
+func (r *Relay) startForwarding(source net.Conn, destination net.Conn, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
 		select {
-		case <-b.ctx.Done():
+		case <-r.ctx.Done():
 			return
 		default:
 		}
@@ -58,14 +58,14 @@ func (b *Bridge) startForwardRelaying(source net.Conn, destination net.Conn, wg 
 			return
 		}
 		if err != nil {
-			b.cancel(err)
+			r.cancel(err)
 			return
 		}
 
 		logPacket("Packet", buffer[:n])
 
 		if _, err := destination.Write(buffer[:n]); err != nil {
-			b.cancel(err)
+			r.cancel(err)
 			return
 		}
 	}

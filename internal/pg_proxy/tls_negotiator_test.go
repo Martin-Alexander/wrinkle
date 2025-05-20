@@ -23,18 +23,24 @@ func (m *MockHandshaker) Handshake(conn net.Conn) (net.Conn, error) {
 	return args.Get(0).(net.Conn), args.Error(1)
 }
 
-func TestNewBridgeBuilder(t *testing.T) {
+type Result struct {
+	frontendConn net.Conn
+	backendConn  net.Conn
+	err          error
+}
+
+func TestNewTlsNegotiator(t *testing.T) {
 	tlsClientHandshaker := new(MockHandshaker)
 	tlsServerHandshaker := new(MockHandshaker)
 
-	builder := NewBridgeBuilder(tlsClientHandshaker, tlsServerHandshaker)
+	tlsNegotiator := NewTlsNegotiator(tlsClientHandshaker, tlsServerHandshaker)
 
-	assert.NotNil(t, builder)
-	assert.Equal(t, tlsClientHandshaker, builder.clientHandshaker)
-	assert.Equal(t, tlsServerHandshaker, builder.serverHandshaker)
+	assert.NotNil(t, tlsNegotiator)
+	assert.Equal(t, tlsClientHandshaker, tlsNegotiator.clientHandshaker)
+	assert.Equal(t, tlsServerHandshaker, tlsNegotiator.serverHandshaker)
 }
 
-func TestBuild(t *testing.T) {
+func TestNegotiate(t *testing.T) {
 	testCases := []struct {
 		name             string
 		frontendPacket   []byte
@@ -85,7 +91,7 @@ func TestBuild(t *testing.T) {
 			frontendTlsConn := &tls.Conn{}
 			backendTlsConn := &tls.Conn{}
 
-			builder := NewBridgeBuilder(tlsClientHandshakerMock, tlsServerHandshakerMock)
+			negotiator := NewTlsNegotiator(tlsClientHandshakerMock, tlsServerHandshakerMock)
 
 			frontendClient, frontendServer,
 				backendClient, backendServer, closeConnections := createConnections(t)
@@ -99,13 +105,15 @@ func TestBuild(t *testing.T) {
 				tlsServerHandshakerMock.On("Handshake", mock.Anything).Return(nil, errors.New("handshake error"))
 			}
 
-			resultCh := make(chan *Bridge, 1)
-			errCh := make(chan error, 1)
+			resultCh := make(chan *Result, 1)
 
 			go func() {
-				middleMan, err := builder.Build(frontendServer, backendClient)
-				resultCh <- middleMan
-				errCh <- err
+				frontendConn, backendConn, err := negotiator.Negotiate(frontendServer, backendClient)
+				resultCh <- &Result{
+					frontendConn: frontendConn,
+					backendConn:  backendConn,
+					err:          err,
+				}
 			}()
 
 			frontendClient.Write(tc.frontendPacket)
@@ -121,12 +129,11 @@ func TestBuild(t *testing.T) {
 			assert.Equal(t, string(tc.backendResponse), string(buffer))
 
 			result := <-resultCh
-			err := <-errCh
 
 			if tc.expectError {
-				assert.Error(t, err)
+				assert.Error(t, result.err)
 			} else {
-				assert.NoError(t, err)
+				assert.NoError(t, result.err)
 			}
 
 			if tc.expectResult {
@@ -134,7 +141,8 @@ func TestBuild(t *testing.T) {
 				assert.Equal(t, frontendTlsConn, result.frontendConn)
 				assert.Equal(t, backendTlsConn, result.backendConn)
 			} else {
-				assert.Nil(t, result)
+				assert.Nil(t, result.frontendConn)
+				assert.Nil(t, result.backendConn)
 			}
 		})
 	}
