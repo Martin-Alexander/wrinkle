@@ -1,4 +1,4 @@
-package tcp_server
+package tcp
 
 import (
 	"net"
@@ -18,7 +18,7 @@ type Server struct {
 	done        chan struct{}
 }
 
-func New(network string, port string) (*Server, <-chan net.Addr) {
+func NewServer(network string, port string) (*Server, <-chan net.Addr) {
 	readyCh := make(chan net.Addr, 1)
 	connEventCh := make(chan ConnectionEvent, 16)
 	done := make(chan struct{})

@@ -1,0 +1,26 @@
+services:
+  proxy:
+    build:
+      context: .
+      dockerfile: proxy.Dockerfile
+    ports:
+      - "54321:5432"
+    volumes:
+      - .:/app
+      - go-modules:/go/pkg/mod
+    working_dir: /app
+    command: go run cmd/proxy/main.go
+
+  pg:
+    build:
+      context: .
+      dockerfile: pg.Dockerfile
+    environment:
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - .:/app
+      - pg-data:/var/lib/postgresql/data
+
+volumes:
+  go-modules:
+  pg-data:

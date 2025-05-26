@@ -1,4 +1,4 @@
-package pg_proxy
+package proxy
 
 import (
 	"crypto/tls"

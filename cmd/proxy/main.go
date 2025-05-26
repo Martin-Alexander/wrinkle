@@ -5,32 +5,32 @@ import (
 	"log"
 	"log/slog"
 	"os"
-	"wrinkle/internal/pg_proxy"
-	"wrinkle/internal/tcp_server"
+	"wrinkle/internal/proxy"
+	"wrinkle/internal/tcp"
 )
 
 func main() {
-	cert, err := tls.LoadX509KeyPair("/app/.ssl/server.crt", "/app/.ssl/server.key")
+	cert, err := tls.LoadX509KeyPair("/.ssl/proxy.crt", "/.ssl/proxy.key")
 	if err != nil {
 		log.Fatalf("Failed to load cert: %v", err)
 	}
 
-	tlsServerHandshaker := tcp_server.NewServerTlsHandshaker(&tls.Config{
+	tlsServerHandshaker := tcp.NewServerTlsHandshaker(&tls.Config{
 		Certificates:       []tls.Certificate{cert},
 		InsecureSkipVerify: true,
 	})
 
-	tlsClientHandshaker := tcp_server.NewClientTlsHandshaker(&tls.Config{
+	tlsClientHandshaker := tcp.NewClientTlsHandshaker(&tls.Config{
 		InsecureSkipVerify: true,
 	})
 
-	pgProxyTlsNegotiator := pg_proxy.NewTlsNegotiator(tlsClientHandshaker, tlsServerHandshaker)
+	pgProxyTlsNegotiator := proxy.NewTlsNegotiator(tlsClientHandshaker, tlsServerHandshaker)
 
-	pgProxyBackendConnecter := pg_proxy.NewBackendConnecter("tcp4", "postgres", "5432")
+	pgProxyBackendConnecter := proxy.NewBackendConnecter("tcp4", "pg", "5432")
 
-	pgProxyConnectionHandler := pg_proxy.NewConnectionHandler(pgProxyBackendConnecter, pgProxyTlsNegotiator)
+	pgProxyConnectionHandler := proxy.NewConnectionHandler(pgProxyBackendConnecter, pgProxyTlsNegotiator)
 
-	server, readyCh := tcp_server.New("tcp4", "54321")
+	server, readyCh := tcp.NewServer("tcp4", "5432")
 
 	go func() {
 		if err = server.Listen(); err != nil {

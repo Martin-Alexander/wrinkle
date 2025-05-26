@@ -1,4 +1,4 @@
-package tcp_server
+package tcp
 
 import (
 	"net"
@@ -9,13 +9,13 @@ import (
 )
 
 func TestNewServer(t *testing.T) {
-	server, _ := New("tcp4", "")
+	server, _ := NewServer("tcp4", "")
 
 	assert.NotNil(t, server)
 }
 
 func TestStart(t *testing.T) {
-	server, readyCh := New("tcp4", "")
+	server, readyCh := NewServer("tcp4", "")
 
 	go server.Listen()
 	defer server.Close()
@@ -31,7 +31,7 @@ func TestStart(t *testing.T) {
 }
 
 func TestAccept(t *testing.T) {
-	server, readyCh := New("tcp4", "")
+	server, readyCh := NewServer("tcp4", "")
 
 	go server.Listen()
 	defer server.Close()

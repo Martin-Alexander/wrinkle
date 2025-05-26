@@ -1,9 +1,10 @@
-package pg_proxy
+package proxy
 
 import (
 	"net"
 	"testing"
 	"time"
+	"wrinkle/internal/pg"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -31,19 +32,27 @@ func TestStart(t *testing.T) {
 
 	go relay.Start()
 
-	frontendDataSent := []byte("frontend test data")
-	frontendClient.Write(frontendDataSent)
-	buffer := make([]byte, len(frontendDataSent))
+	frontendMessage := pg.Message{
+		Type:   byte(pg.ClientSimpleQuery),
+		Length: 9,
+		Data:   []byte{0x04, 0xd2, 0x16, 0x2f},
+	}
+	frontendClient.Write(frontendMessage.Binary())
+	buffer := make([]byte, len(frontendMessage.Binary()))
 	backendServer.Read(buffer)
 
-	assert.Equal(t, string(frontendDataSent), string(buffer))
+	assert.Equal(t, string(frontendMessage.Binary()), string(buffer))
 
-	backendDataSent := []byte("backend test data")
-	backendServer.Write(backendDataSent)
-	backendBuffer := make([]byte, len(backendDataSent))
+	backendMessage := pg.Message{
+		Type:   byte(pg.ServerCommandComplete),
+		Length: 9,
+		Data:   []byte{0x04, 0xd2, 0x16, 0x2f},
+	}
+	backendServer.Write(backendMessage.Binary())
+	backendBuffer := make([]byte, len(backendMessage.Binary()))
 	n, _ := frontendClient.Read(backendBuffer)
 
-	assert.Equal(t, string(backendDataSent), string(backendBuffer[:n]))
+	assert.Equal(t, string(backendMessage.Binary()), string(backendBuffer[:n]))
 }
 
 func createTcpConnection(t *testing.T) (net.Conn, net.Conn) {

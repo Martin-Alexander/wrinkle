@@ -1,6 +1,7 @@
-package pg_proxy
+package proxy
 
 import (
+	"encoding/binary"
 	"net"
 )
 
@@ -32,6 +33,21 @@ func (ch *ConnectionHandler) HandleConnection(conn net.Conn) error {
 	if err != nil {
 		return err
 	}
+
+	lengthBuff := make([]byte, 4)
+	if _, err := frontendTlsConn.Read(lengthBuff); err != nil {
+		return err
+	}
+
+	length := binary.BigEndian.Uint32(lengthBuff)
+
+	messageBuff := make([]byte, length-4)
+	if _, err := frontendTlsConn.Read(messageBuff); err != nil {
+		return err
+	}
+
+	backendTlsConn.Write(lengthBuff)
+	backendTlsConn.Write(messageBuff)
 
 	relay := NewRelay(frontendTlsConn, backendTlsConn)
 
