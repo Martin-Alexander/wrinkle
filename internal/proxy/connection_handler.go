@@ -1,55 +1,50 @@
 package proxy
 
 import (
-	"encoding/binary"
+	"crypto/tls"
 	"net"
+
+	"github.com/pkg/errors"
 )
 
-type ConnectionHandler struct {
-	backendConnecter *BackendConnecter
-	tlsNegotiator    *TlsNegotiator
+type ConnectionConfig struct {
+	BackendHostname   string
+	BackendPort       string
+	FrontendTlsConfig *tls.Config
+	BackendTlsConfig  *tls.Config
 }
 
-func NewConnectionHandler(
-	backendConnecter *BackendConnecter,
-	tlsNegotiator *TlsNegotiator,
-) *ConnectionHandler {
-	return &ConnectionHandler{
-		backendConnecter: backendConnecter,
-		tlsNegotiator:    tlsNegotiator,
-	}
-}
+func HandleConnection(
+	feConn net.Conn,
+	config ConnectionConfig,
+) error {
+	defer feConn.Close()
 
-func (ch *ConnectionHandler) HandleConnection(conn net.Conn) error {
-	defer conn.Close()
-
-	backendConn, err := ch.backendConnecter.Dial()
+	beConn, err := ConnectToBackend(config.BackendHostname, config.BackendPort)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
-	defer backendConn.Close()
+	defer beConn.Close()
 
-	frontendTlsConn, backendTlsConn, err := ch.tlsNegotiator.Negotiate(conn, backendConn)
+	if err := HandleTlsNegotiation(feConn, beConn); err != nil {
+		return errors.WithStack(err)
+	}
+
+	feConn, beConn, err = PerformTlsHandshakes(
+		feConn,
+		beConn,
+		config.FrontendTlsConfig,
+		config.BackendTlsConfig,
+	)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 
-	lengthBuff := make([]byte, 4)
-	if _, err := frontendTlsConn.Read(lengthBuff); err != nil {
-		return err
+	if err := HandleClientStartupMessage(feConn, beConn); err != nil {
+		return errors.WithStack(err)
 	}
 
-	length := binary.BigEndian.Uint32(lengthBuff)
-
-	messageBuff := make([]byte, length-4)
-	if _, err := frontendTlsConn.Read(messageBuff); err != nil {
-		return err
-	}
-
-	backendTlsConn.Write(lengthBuff)
-	backendTlsConn.Write(messageBuff)
-
-	relay := NewRelay(frontendTlsConn, backendTlsConn)
+	relay := NewRelay(feConn, beConn)
 
 	return relay.Start()
 }

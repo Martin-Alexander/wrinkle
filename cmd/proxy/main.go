@@ -2,39 +2,38 @@ package main
 
 import (
 	"crypto/tls"
-	"log"
+	"fmt"
 	"log/slog"
 	"os"
 	"wrinkle/internal/proxy"
 	"wrinkle/internal/tcp"
+
+	"github.com/pkg/errors"
 )
 
 func main() {
 	cert, err := tls.LoadX509KeyPair("/.ssl/proxy.crt", "/.ssl/proxy.key")
 	if err != nil {
-		log.Fatalf("Failed to load cert: %v", err)
+		fmt.Fprintf(os.Stderr, "Error %+v\n", errors.WithStack(err))
 	}
 
-	tlsServerHandshaker := tcp.NewServerTlsHandshaker(&tls.Config{
-		Certificates:       []tls.Certificate{cert},
-		InsecureSkipVerify: true,
-	})
-
-	tlsClientHandshaker := tcp.NewClientTlsHandshaker(&tls.Config{
-		InsecureSkipVerify: true,
-	})
-
-	pgProxyTlsNegotiator := proxy.NewTlsNegotiator(tlsClientHandshaker, tlsServerHandshaker)
-
-	pgProxyBackendConnecter := proxy.NewBackendConnecter("tcp4", "pg", "5432")
-
-	pgProxyConnectionHandler := proxy.NewConnectionHandler(pgProxyBackendConnecter, pgProxyTlsNegotiator)
+	connectionConfig := proxy.ConnectionConfig{
+		BackendHostname: "pg",
+		BackendPort:     "5432",
+		FrontendTlsConfig: &tls.Config{
+			Certificates:       []tls.Certificate{cert},
+			InsecureSkipVerify: true,
+		},
+		BackendTlsConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
 
 	server, readyCh := tcp.NewServer("tcp4", "5432")
 
 	go func() {
-		if err = server.Listen(); err != nil {
-			slog.Error("Error starting server", "error", err)
+		if err := server.Listen(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error %+v\n", err)
 
 			os.Exit(1)
 		}
@@ -49,6 +48,12 @@ func main() {
 			continue
 		}
 
-		go pgProxyConnectionHandler.HandleConnection(connEvent.Conn)
+		slog.Info("Accepted new connection", "address", connEvent.Conn.RemoteAddr())
+
+		go func() {
+			if err := proxy.HandleConnection(connEvent.Conn, connectionConfig); err != nil {
+				fmt.Fprintf(os.Stderr, "Error %+v\n", err)
+			}
+		}()
 	}
 }

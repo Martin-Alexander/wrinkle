@@ -2,6 +2,8 @@ package tcp
 
 import (
 	"net"
+
+	"github.com/pkg/errors"
 )
 
 type ConnectionEvent struct {
@@ -38,7 +40,7 @@ func (s *Server) Listen() error {
 	address := net.JoinHostPort("", s.port)
 	listener, err := net.Listen(s.network, address)
 	if err != nil {
-		return err
+		return errors.WithStack(err)
 	}
 	defer listener.Close()
 
@@ -55,7 +57,7 @@ func (s *Server) Listen() error {
 			default:
 				s.connEventCh <- ConnectionEvent{
 					Conn: conn,
-					Err:  err,
+					Err:  errors.WithStack(err),
 				}
 
 				continue
