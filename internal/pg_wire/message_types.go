@@ -1,20 +1,4 @@
-package pg
-
-import "encoding/binary"
-
-type Message struct {
-	Type   byte
-	Length int32
-	Data   []byte
-}
-
-func (m *Message) Binary() []byte {
-	b := make([]byte, m.Length+1)
-	b[0] = m.Type
-	binary.BigEndian.PutUint32(b[1:], uint32(m.Length))
-	copy(b[5:], m.Data)
-	return b
-}
+package pg_wire
 
 type ClientMessageType byte
 

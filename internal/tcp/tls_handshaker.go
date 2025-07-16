@@ -5,24 +5,18 @@ import (
 	"net"
 )
 
+func NewTlsHandshaker(config *tls.Config, server bool) *TlsHandshaker {
+	return &TlsHandshaker{
+		server: server,
+		config: config,
+	}
+}
+
 type TlsHandshaker struct {
 	server bool
 	config *tls.Config
 }
 
-func NewClientTlsHandshaker(config *tls.Config) *TlsHandshaker {
-	return &TlsHandshaker{
-		server: false,
-		config: config,
-	}
-}
-
-func NewServerTlsHandshaker(config *tls.Config) *TlsHandshaker {
-	return &TlsHandshaker{
-		server: true,
-		config: config,
-	}
-}
 func (h *TlsHandshaker) Handshake(conn net.Conn) (net.Conn, error) {
 	var tlsConn *tls.Conn
 

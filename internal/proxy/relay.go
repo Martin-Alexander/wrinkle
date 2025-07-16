@@ -6,7 +6,10 @@ import (
 	"log"
 	"net"
 	"sync"
-	"wrinkle/internal/pg"
+
+	"wrinkle/internal/pg_wire"
+
+	"github.com/pkg/errors"
 )
 
 type Relay struct {
@@ -50,21 +53,25 @@ func (r *Relay) startForwardingFrontend(source net.Conn, destination net.Conn, w
 		default:
 		}
 
-		message, err := ReadMessage(source)
+		message, err := pg_wire.ReadMessage(source)
 		if err != nil {
-			r.cancel(err)
+			r.cancel(errors.WithStack(err))
 			return
+		}
+
+		if message == nil {
+			continue
 		}
 
 		log.Printf(
 			"-- %s -- %s:\n%s\n",
 			"Client",
-			pg.ClientMessageType(message.Type).ToString(),
-			hex.Dump(message.Binary()),
+			pg_wire.ClientMessageType(message.Type).ToString(),
+			hex.Dump(message.Bytes()),
 		)
 
-		if _, err := destination.Write(message.Binary()); err != nil {
-			r.cancel(err)
+		if err := pg_wire.WriteMessage(destination, message); err != nil {
+			r.cancel(errors.WithStack(err))
 			return
 		}
 	}
@@ -80,21 +87,25 @@ func (r *Relay) startForwardingBackend(source net.Conn, destination net.Conn, wg
 		default:
 		}
 
-		message, err := ReadMessage(source)
+		message, err := pg_wire.ReadMessage(source)
 		if err != nil {
-			r.cancel(err)
+			r.cancel(errors.WithStack(err))
 			return
+		}
+
+		if message == nil {
+			continue
 		}
 
 		log.Printf(
 			"-- %s -- %s:\n%s\n",
 			"Server",
-			pg.ServerMessageType(message.Type).ToString(),
-			hex.Dump(message.Binary()),
+			pg_wire.ServerMessageType(message.Type).ToString(),
+			hex.Dump(message.Bytes()),
 		)
 
-		if _, err := destination.Write(message.Binary()); err != nil {
-			r.cancel(err)
+		if err := pg_wire.WriteMessage(destination, message); err != nil {
+			r.cancel(errors.WithStack(err))
 			return
 		}
 	}
