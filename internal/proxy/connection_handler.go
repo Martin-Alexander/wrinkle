@@ -1,50 +1,26 @@
 package proxy
 
 import (
-	"crypto/tls"
 	"net"
 
 	"github.com/pkg/errors"
 )
 
-type ConnectionConfig struct {
-	BackendHostname   string
-	BackendPort       string
-	FrontendTlsConfig *tls.Config
-	BackendTlsConfig  *tls.Config
+type ConnectionCreator interface {
+	CreateConnection(feConn net.Conn) (net.Conn, net.Conn, error)
 }
 
 func HandleConnection(
 	feConn net.Conn,
-	config ConnectionConfig,
+	connectionCreator ConnectionCreator,
+	broker *Broker,
 ) error {
-	defer feConn.Close()
-
-	beConn, err := ConnectToBackend(config.BackendHostname, config.BackendPort)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	defer beConn.Close()
-
-	if err := HandleTlsNegotiation(feConn, beConn); err != nil {
-		return errors.WithStack(err)
-	}
-
-	feConn, beConn, err = PerformTlsHandshakes(
-		feConn,
-		beConn,
-		config.FrontendTlsConfig,
-		config.BackendTlsConfig,
-	)
+	feConn, beConn, err := connectionCreator.CreateConnection(feConn)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
-	if err := HandleClientStartupMessage(feConn, beConn); err != nil {
-		return errors.WithStack(err)
-	}
+	broker.Start(feConn, beConn)
 
-	relay := NewRelay(feConn, beConn)
-
-	return relay.Start()
+	return nil
 }

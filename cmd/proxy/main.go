@@ -2,38 +2,67 @@ package main
 
 import (
 	"crypto/tls"
-	"fmt"
 	"log/slog"
 	"os"
+	"wrinkle/internal/glue"
+	"wrinkle/internal/pg_middleman"
+	"wrinkle/internal/pg_wire"
 	"wrinkle/internal/proxy"
 	"wrinkle/internal/tcp"
-
-	"github.com/pkg/errors"
+	"wrinkle/internal/wrinkle"
 )
 
 func main() {
+	slog.Debug("Starting the proxy server")
+
 	cert, err := tls.LoadX509KeyPair("/.ssl/proxy.crt", "/.ssl/proxy.key")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error %+v\n", errors.WithStack(err))
+		slog.Error("Error loading TLS certificates", "error", err)
 	}
 
-	connectionConfig := proxy.ConnectionConfig{
-		BackendHostname: "pg",
-		BackendPort:     "5432",
-		FrontendTlsConfig: &tls.Config{
+	connectionCreator := pg_middleman.NewConnectionCreator(
+		"pg",
+		"5432",
+		&tls.Config{
 			Certificates:       []tls.Certificate{cert},
 			InsecureSkipVerify: true,
 		},
-		BackendTlsConfig: &tls.Config{
+		&tls.Config{
 			InsecureSkipVerify: true,
 		},
-	}
+	)
+
+	controller := wrinkle.NewController()
+
+	controllerBrokerGlue := glue.NewControllerBrokerGlue(controller)
+
+	errorCh := make(chan error, 1)
+
+	broker := proxy.NewBroker(
+		&pg_wire.MessageReader{},
+		&pg_wire.MessageWriter{},
+		controllerBrokerGlue.FeMsgRecvCh,
+		controllerBrokerGlue.BeMsgRecvCh,
+		controllerBrokerGlue.SendFeMsgCh,
+		controllerBrokerGlue.SendBeMsgCh,
+		errorCh,
+	)
+
+	controller.Start()
 
 	server, readyCh := tcp.NewServer("tcp4", "5432")
 
 	go func() {
 		if err := server.Listen(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error %+v\n", err)
+			slog.Error("TCP server error", "error", err)
+
+			os.Exit(1)
+		}
+	}()
+
+	go func() {
+		for err := range errorCh {
+			slog.Error("Broker error", "error", err)
 
 			os.Exit(1)
 		}
@@ -50,10 +79,8 @@ func main() {
 
 		slog.Info("Accepted new connection", "address", connEvent.Conn.RemoteAddr())
 
-		go func() {
-			if err := proxy.HandleConnection(connEvent.Conn, connectionConfig); err != nil {
-				fmt.Fprintf(os.Stderr, "Error %+v\n", err)
-			}
-		}()
+		if err := proxy.HandleConnection(connEvent.Conn, connectionCreator, broker); err != nil {
+			slog.Error("Connection handling error", "error", err)
+		}
 	}
 }

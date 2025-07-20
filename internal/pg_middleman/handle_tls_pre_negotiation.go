@@ -1,4 +1,4 @@
-package proxy
+package pg_middleman
 
 import (
 	"net"
@@ -14,7 +14,7 @@ func (e *TlsNegotiationError) Error() string {
 	return e.message
 }
 
-func HandleTlsNegotiation(feConn net.Conn, beConn net.Conn) error {
+func HandleTlsPreNegotiation(feConn net.Conn, beConn net.Conn) error {
 	initMessageBuff := make([]byte, 8)
 	if _, err := feConn.Read(initMessageBuff); err != nil {
 		return errors.WithStack(err)

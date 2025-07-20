@@ -1,4 +1,4 @@
-package proxy
+package pg_middleman
 
 import (
 	"encoding/binary"

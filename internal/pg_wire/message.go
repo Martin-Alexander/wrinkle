@@ -2,58 +2,26 @@ package pg_wire
 
 import (
 	"encoding/binary"
-	"net"
-	"time"
-
-	"github.com/pkg/errors"
+	"errors"
 )
 
-func ReadMessage(source net.Conn) (*Message, error) {
-	source.SetReadDeadline(time.Now().Add(time.Millisecond))
-	typeBuff := make([]byte, 1)
-	_, err := source.Read(typeBuff)
-	source.SetReadDeadline(time.Time{})
-
-	if err != nil {
-		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-			return nil, nil
-		}
-		return nil, errors.WithStack(err)
+func FromBytes(data []byte) (*Message, error) {
+	if len(data) < 5 {
+		return nil, errors.New("data too short to be a valid message")
 	}
 
-	lengthBuff, lengthBuffErr := readExactly(source, 4)
-	if lengthBuffErr != nil {
-		return nil, errors.WithStack(lengthBuffErr)
+	messageType := data[0]
+	messageLength := binary.BigEndian.Uint32(data[1:5])
+
+	if uint32(len(data)) < messageLength {
+		return nil, errors.New("data length does not match message length")
 	}
 
-	length := binary.BigEndian.Uint32(lengthBuff)
-
-	dataLength := int(length - 4)
-
-	if dataLength < 0 {
-		return nil, errors.Errorf("invalid message length: %d", length)
-	}
-
-	dataBuff, dataBuffErr := readExactly(source, dataLength)
-	if dataBuffErr != nil {
-		return nil, errors.WithStack(dataBuffErr)
-	}
-
-	message := Message{
-		Type:   typeBuff[0],
-		Length: length,
-		Data:   dataBuff,
-	}
-
-	return &message, nil
-}
-
-func WriteMessage(destination net.Conn, message *Message) error {
-	if _, err := destination.Write(message.Bytes()); err != nil {
-		return errors.WithStack(err)
-	}
-
-	return nil
+	return &Message{
+		Type:   messageType,
+		Length: messageLength,
+		Data:   data[5 : messageLength+1],
+	}, nil
 }
 
 type Message struct {
@@ -70,18 +38,4 @@ func (m *Message) Bytes() []byte {
 	copy(buffer[5:], m.Data)
 
 	return buffer
-}
-
-func readExactly(source net.Conn, length int) ([]byte, error) {
-	data := make([]byte, length)
-
-	n, err := source.Read(data)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	if n != length {
-		return nil, errors.Errorf("expected to read %d bytes, but got %d", length, n)
-	}
-
-	return data, nil
 }
