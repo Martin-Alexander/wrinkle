@@ -12,7 +12,9 @@ import (
 )
 
 func TestConnectionToServer(t *testing.T) {
-	connStr := "host=localhost port=5432 user=e2e_test_user password=e2e_test_password dbname=e2e_test_db sslmode=require"
+	// $ psql "postgresql://e2e_test_user:e2e_test_password@localhost:54321/e2e_test_db?sslmode=allow&channel_binding=disable"
+
+	connStr := "host=localhost port=5432 user=e2e_test_user password=e2e_test_password dbname=e2e_test_db sslmode=require channel_binding=disable"
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
