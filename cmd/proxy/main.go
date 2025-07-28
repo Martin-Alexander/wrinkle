@@ -4,10 +4,8 @@ import (
 	"crypto/tls"
 	"log/slog"
 	"os"
-	"wrinkle/internal/glue"
 	"wrinkle/internal/pg_middleman"
 	"wrinkle/internal/pg_wire"
-	"wrinkle/internal/proxy"
 	"wrinkle/internal/tcp"
 	"wrinkle/internal/wrinkle"
 )
@@ -34,17 +32,12 @@ func main() {
 
 	controller := wrinkle.NewController()
 
-	controllerBrokerGlue := glue.NewControllerBrokerGlue(controller)
-
 	errorCh := make(chan error, 1)
 
-	broker := proxy.NewBroker(
+	broker := wrinkle.NewBroker(
 		&pg_wire.MessageReader{},
 		&pg_wire.MessageWriter{},
-		controllerBrokerGlue.FeMsgRecvCh,
-		controllerBrokerGlue.BeMsgRecvCh,
-		controllerBrokerGlue.SendFeMsgCh,
-		controllerBrokerGlue.SendBeMsgCh,
+		controller,
 		errorCh,
 	)
 
@@ -79,7 +72,7 @@ func main() {
 
 		slog.Info("Accepted new connection", "address", connEvent.Conn.RemoteAddr())
 
-		if err := proxy.HandleConnection(connEvent.Conn, connectionCreator, broker); err != nil {
+		if err := wrinkle.HandleConnection(connEvent.Conn, connectionCreator, broker); err != nil {
 			slog.Error("Connection handling error", "error", err)
 		}
 	}
