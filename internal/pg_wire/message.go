@@ -2,29 +2,17 @@ package pg_wire
 
 import (
 	"encoding/binary"
-	"errors"
 )
 
-func FromBytes(data []byte) (*Message, error) {
-	if len(data) < 5 {
-		return nil, errors.New("data too short to be a valid message")
-	}
+type Sender int
 
-	messageType := data[0]
-	messageLength := binary.BigEndian.Uint32(data[1:5])
-
-	if uint32(len(data)) < messageLength {
-		return nil, errors.New("data length does not match message length")
-	}
-
-	return &Message{
-		Type:   messageType,
-		Length: messageLength,
-		Data:   data[5 : messageLength+1],
-	}, nil
-}
+const (
+	Frontend Sender = iota
+	Backend
+)
 
 type Message struct {
+	Sender Sender
 	Type   byte
 	Length uint32
 	Data   []byte
@@ -38,4 +26,12 @@ func (m *Message) Bytes() []byte {
 	copy(buffer[5:], m.Data)
 
 	return buffer
+}
+
+func (m *Message) Name() string {
+	if m.Sender == Frontend {
+		return ClientMessageType(m.Type).String()
+	}
+
+	return ServerMessageType(m.Type).String()
 }

@@ -34,7 +34,7 @@ func main() {
 
 	errorCh := make(chan error, 1)
 
-	broker := wrinkle.NewBroker(
+	router := wrinkle.NewRouter(
 		&pg_wire.MessageReader{},
 		&pg_wire.MessageWriter{},
 		controller,
@@ -72,7 +72,7 @@ func main() {
 
 		slog.Info("Accepted new connection", "address", connEvent.Conn.RemoteAddr())
 
-		if err := wrinkle.HandleConnection(connEvent.Conn, connectionCreator, broker); err != nil {
+		if err := wrinkle.HandleConnection(connEvent.Conn, connectionCreator, router); err != nil {
 			slog.Error("Connection handling error", "error", err)
 		}
 	}

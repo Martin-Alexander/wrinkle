@@ -2,7 +2,8 @@ package wrinkle
 
 import (
 	"context"
-	"log/slog"
+	"encoding/hex"
+	"log"
 	"wrinkle/internal/pg_wire"
 )
 
@@ -78,13 +79,13 @@ func (c *Controller) readLoop(channel <-chan *pg_wire.Message, handler func(msg 
 }
 
 func (c *Controller) HandleClientMessage(msg *pg_wire.Message) {
-	slog.Info("Sending Message to Server")
+	log.Printf("[Client] %s\n%s\n", msg.Name(), hex.Dump(msg.Bytes()))
 
 	c.outboundDbMsgCh <- msg // For now, just send everything to the DB
 }
 
 func (c *Controller) HandleDbMessage(msg *pg_wire.Message) {
-	slog.Info("Sending Message to Client")
+	log.Printf("[Server] %s\n%s\n", msg.Name(), hex.Dump(msg.Bytes()))
 
 	c.outboundClientMsgCh <- msg
 }

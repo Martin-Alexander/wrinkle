@@ -9,7 +9,7 @@ import (
 
 type MessageReader struct{}
 
-func (mr *MessageReader) ReadMessage(reader io.Reader) (*Message, error) {
+func (mr *MessageReader) ReadMessage(reader io.Reader, sender Sender) (*Message, error) {
 	messageTypeBuff, err := read(reader, 1)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -34,6 +34,7 @@ func (mr *MessageReader) ReadMessage(reader io.Reader) (*Message, error) {
 	}
 
 	message := Message{
+		Sender: sender,
 		Type:   messageTypeBuff[0],
 		Length: messageLength,
 		Data:   dataBuff,

@@ -42,85 +42,54 @@ const (
 	DescribeStatement DescribeMessageType = 'S'
 )
 
-func (m ClientMessageType) ToString() string {
-	switch m {
-	case ClientBind:
-		return "Bind"
-	case ClientClose:
-		return "Close"
-	case ClientCopyData:
-		return "CopyData"
-	case ClientCopyDone:
-		return "CopyDone"
-	case ClientCopyFail:
-		return "CopyFail"
-	case ClientDescribe:
-		return "Describe"
-	case ClientExecute:
-		return "Execute"
-	case ClientFlush:
-		return "Flush"
-	case ClientParse:
-		return "Parse"
-	case ClientPassword:
-		return "Password"
-	case ClientSimpleQuery:
-		return "SimpleQuery"
-	case ClientSync:
-		return "Sync"
-	case ClientTerminate:
-		return "Terminate"
-	default:
-		return "Unknown"
-	}
+var clientMessageName = map[ClientMessageType]string{
+	ClientBind:        "Bind",
+	ClientClose:       "Close",
+	ClientCopyData:    "CopyData",
+	ClientCopyDone:    "CopyDone",
+	ClientCopyFail:    "CopyFail",
+	ClientDescribe:    "Describe",
+	ClientExecute:     "Execute",
+	ClientFlush:       "Flush",
+	ClientParse:       "Parse",
+	ClientPassword:    "Password",
+	ClientSimpleQuery: "SimpleQuery",
+	ClientSync:        "Sync",
+	ClientTerminate:   "Terminate",
 }
 
-func (m ServerMessageType) ToString() string {
-	switch m {
-	case ServerAuth:
-		return "Auth"
-	case ServerBindComplete:
-		return "BindComplete"
-	case ServerCommandComplete:
-		return "CommandComplete"
-	case ServerCloseComplete:
-		return "CloseComplete"
-	case ServerCopyInResponse:
-		return "CopyInResponse"
-	case ServerDataRow:
-		return "DataRow"
-	case ServerEmptyQuery:
-		return "EmptyQuery"
-	case ServerErrorResponse:
-		return "ErrorResponse"
-	case ServerNoticeResponse:
-		return "NoticeResponse"
-	case ServerNoData:
-		return "NoData"
-	case ServerParameterDescription:
-		return "ParameterDescription"
-	case ServerParameterStatus:
-		return "ParameterStatus"
-	case ServerParseComplete:
-		return "ParseComplete"
-	case ServerPortalSuspended:
-		return "PortalSuspended"
-	case ServerReady:
-		return "Ready"
-	case ServerRowDescription:
-		return "RowDescription"
-	default:
-		return "Unknown"
-	}
+var serverMessageName = map[ServerMessageType]string{
+	ServerAuth:                 "Auth",
+	ServerBindComplete:         "BindComplete",
+	ServerCommandComplete:      "CommandComplete",
+	ServerCloseComplete:        "CloseComplete",
+	ServerCopyInResponse:       "CopyInResponse",
+	ServerDataRow:              "DataRow",
+	ServerEmptyQuery:           "EmptyQuery",
+	ServerErrorResponse:        "ErrorResponse",
+	ServerNoticeResponse:       "NoticeResponse",
+	ServerNoData:               "NoData",
+	ServerParameterDescription: "ParameterDescription",
+	ServerParameterStatus:      "ParameterStatus",
+	ServerParseComplete:        "ParseComplete",
+	ServerPortalSuspended:      "PortalSuspended",
+	ServerReady:                "Ready",
+	ServerRowDescription:       "RowDescription",
 }
 
-func (m DescribeMessageType) ToString() string {
-	switch m {
-	case DescribePortal:
-		return "Portal"
-	case DescribeStatement:
-		return "Statement"
-	default:
-		return "Unknown"
-	}
+var describeMessageType = map[DescribeMessageType]string{
+	DescribePortal:    "Portal",
+	DescribeStatement: "Statement",
+}
+
+func (c ClientMessageType) String() string {
+	return clientMessageName[c]
+}
+
+func (s ServerMessageType) String() string {
+	return serverMessageName[s]
+}
+
+func (d DescribeMessageType) String() string {
+	return describeMessageType[d]
 }

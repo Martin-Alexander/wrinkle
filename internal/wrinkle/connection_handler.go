@@ -13,14 +13,14 @@ type ConnectionCreator interface {
 func HandleConnection(
 	feConn net.Conn,
 	connectionCreator ConnectionCreator,
-	broker *Broker,
+	router *Router,
 ) error {
 	feConn, beConn, err := connectionCreator.CreateConnection(feConn)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
-	broker.Start(feConn, beConn)
+	router.Start(feConn, beConn)
 
 	return nil
 }
